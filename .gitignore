@@ -4,3 +4,11 @@ __pycache__/
 venv/
 runs/
 .DS_Store
+
+# Downloaded training datasets
+datasets/
+
+# Local SCROBOT dataset contents
+# Keep dataset/data.yaml tracked as the template/config.
+dataset/images/
+dataset/labels/
