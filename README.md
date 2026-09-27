@@ -118,3 +118,65 @@ Prioritize images from the actual RealSense mounting height and pitch. Include:
 - examples the current model misses or falsely detects
 
 The goal is not just higher confidence. Compare detection consistency and false positives at the distances needed by the robot.
+
+
+## Reproduce / continue training on the original dataset
+
+The baseline `best.pt` came from Roboflow Universe project:
+
+- workspace: `badyfriends`
+- project: `badminton-shuttlecock-dv7zr`
+- dataset version: `5`
+- class: `Shuttlecock`
+
+Version 5 contains 3,067 generated images and is the version referenced by the original model's `data.yaml`.
+
+Create a free Roboflow API key, then set it in your shell.
+
+PowerShell:
+
+```powershell
+$env:ROBOFLOW_API_KEY="YOUR_KEY"
+```
+
+Linux/macOS:
+
+```bash
+export ROBOFLOW_API_KEY="YOUR_KEY"
+```
+
+Download the exact dataset:
+
+```bash
+python download_original_dataset.py
+```
+
+Then continue fine-tuning the existing `best.pt` on the original data:
+
+```bash
+python train_finetune.py \
+  --model best.pt \
+  --data datasets/badyfriends_v5/data.yaml \
+  --device 0 \
+  --epochs 20 \
+  --batch 16 \
+  --lr0 0.0001 \
+  --name original_v5_continue
+```
+
+For an RTX 2000 Ada laptop GPU, `batch=16` should be a reasonable first attempt for this nano model at 640 px. If CUDA runs out of memory, use `--batch 8`.
+
+Because `best.pt` is already trained on this exact dataset, this run is continuation/fine-tuning rather than a new independent training run. The lower learning rate is intentional to avoid moving too far from the existing solution.
+
+The output model is:
+
+```text
+runs/detect/original_v5_continue/weights/best.pt
+```
+
+Compare it against the original:
+
+```bash
+python test_shuttle.py best.pt
+python test_shuttle.py runs/detect/original_v5_continue/weights/best.pt
+```
