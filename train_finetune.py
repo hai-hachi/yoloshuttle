@@ -25,6 +25,26 @@ def parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
+def print_validation(metrics) -> None:
+    """Print the main Ultralytics detection validation metrics."""
+    print("\n" + "=" * 64)
+    print("VALIDATION RESULT")
+    print("=" * 64)
+    print(f"Precision      : {metrics.box.mp:.4f}")
+    print(f"Recall         : {metrics.box.mr:.4f}")
+    print(f"mAP@50         : {metrics.box.map50:.4f}")
+    print(f"mAP@75         : {metrics.box.map75:.4f}")
+    print(f"mAP@50-95      : {metrics.box.map:.4f}")
+    print(f"Fitness        : {metrics.box.fitness():.4f}")
+
+    if getattr(metrics, "speed", None):
+        print("\nSpeed (ms/image)")
+        for key, value in metrics.speed.items():
+            print(f"  {key:<12}: {value:.2f}")
+
+    print("=" * 64)
+
+
 def main() -> None:
     args = parse_args()
     model_path = Path(args.model)
@@ -75,7 +95,26 @@ def main() -> None:
 
     print("\nTraining complete.")
     print(f"Best weights: {best_path}")
-    print("Test with:")
+
+    # Always validate the saved best checkpoint rather than the last epoch.
+    print("\nRunning validation on best.pt ...")
+    best_model = YOLO(str(best_path))
+
+    val_args = dict(
+        data=str(data_path),
+        split="val",
+        imgsz=args.imgsz,
+        batch=args.batch,
+        workers=args.workers,
+        verbose=True,
+    )
+    if args.device is not None:
+        val_args["device"] = args.device
+
+    metrics = best_model.val(**val_args)
+    print_validation(metrics)
+
+    print("\nTest live with:")
     print(f"  python test_shuttle.py {best_path}")
 
 
