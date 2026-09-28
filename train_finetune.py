@@ -8,6 +8,8 @@ from pathlib import Path
 
 from ultralytics import YOLO
 
+from plot_metrics import plot_metrics
+
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Fine-tune shuttlecock YOLO weights.")
@@ -26,7 +28,6 @@ def parse_args() -> argparse.Namespace:
 
 
 def print_validation(metrics) -> None:
-    """Print the main Ultralytics detection validation metrics."""
     print("\n" + "=" * 64)
     print("VALIDATION RESULT")
     print("=" * 64)
@@ -83,6 +84,7 @@ def main() -> None:
         exist_ok=True,
         seed=42,
         close_mosaic=10,
+        plots=True,
         verbose=True,
     )
     if args.device is not None:
@@ -92,11 +94,17 @@ def main() -> None:
 
     save_dir = Path(results.save_dir)
     best_path = save_dir / "weights" / "best.pt"
+    results_csv = save_dir / "results.csv"
+    metrics_png = save_dir / "metrics.png"
 
     print("\nTraining complete.")
     print(f"Best weights: {best_path}")
 
-    # Always validate the saved best checkpoint rather than the last epoch.
+    if results_csv.is_file():
+        plot_metrics(results_csv, metrics_png)
+    else:
+        print(f"Warning: training results CSV not found: {results_csv}")
+
     print("\nRunning validation on best.pt ...")
     best_model = YOLO(str(best_path))
 
@@ -106,6 +114,7 @@ def main() -> None:
         imgsz=args.imgsz,
         batch=args.batch,
         workers=args.workers,
+        plots=True,
         verbose=True,
     )
     if args.device is not None:
@@ -113,6 +122,12 @@ def main() -> None:
 
     metrics = best_model.val(**val_args)
     print_validation(metrics)
+
+    print("\nGenerated plots:")
+    print(f"  Training metrics : {metrics_png}")
+    print(f"  Ultralytics plot : {save_dir / 'results.png'}")
+    print("  Validation plots : PR_curve.png, F1_curve.png, P_curve.png, R_curve.png,")
+    print("                     confusion_matrix.png (in the validation output directory)")
 
     print("\nTest live with:")
     print(f"  python test_shuttle.py {best_path}")
