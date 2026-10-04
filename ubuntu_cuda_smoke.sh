@@ -68,6 +68,8 @@ fi
 
 echo
 echo "Dataset split counts:"
+train_imgs=0
+val_imgs=0
 for split in train val test; do
   img_dir="$(dirname "${DATA_PATH}")/images/${split}"
   label_dir="$(dirname "${DATA_PATH}")/labels/${split}"
@@ -76,7 +78,15 @@ for split in train val test; do
   [ -d "${img_dir}" ] && imgs="$(find "${img_dir}" -type f | wc -l)"
   [ -d "${label_dir}" ] && labels="$(find "${label_dir}" -type f | wc -l)"
   echo "  ${split}: images=${imgs} labels=${labels}"
+  [ "${split}" = "train" ] && train_imgs="${imgs}"
+  [ "${split}" = "val" ] && val_imgs="${imgs}"
 done
+
+if [ "${train_imgs}" -eq 0 ] || [ "${val_imgs}" -eq 0 ]; then
+  echo "ERROR: training smoke needs non-empty train and val splits."
+  echo "Capture more distinct robot positions/headings, then rerun."
+  exit 3
+fi
 
 echo
 echo "[5/5] One-epoch CUDA fine-tuning smoke"
