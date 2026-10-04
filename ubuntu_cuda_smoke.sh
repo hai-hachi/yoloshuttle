@@ -83,10 +83,15 @@ for split in train val test; do
 done
 
 if [ "${train_imgs}" -eq 0 ] || [ "${val_imgs}" -eq 0 ]; then
-  echo "ERROR: training smoke needs non-empty train and val splits."
-  echo "Capture more distinct robot positions/headings, then rerun."
+  echo "ERROR: training needs non-empty train and val splits."
+  echo "The dataset may be partial; capture a little longer until both splits exist."
   exit 3
 fi
+
+total_imgs=$((train_imgs + val_imgs))
+echo
+echo "Using partial dataset is supported."
+echo "Training with current train+val image count: ${total_imgs}"
 
 echo
 echo "[5/5] One-epoch CUDA fine-tuning smoke"
