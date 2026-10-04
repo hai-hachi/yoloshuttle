@@ -180,3 +180,74 @@ Compare it against the original:
 python test_shuttle.py best.pt
 python test_shuttle.py runs/detect/original_v5_continue/weights/best.pt
 ```
+
+
+## SCROBOT Gazebo synthetic dataset
+
+The current SCROBOT debug branch can generate YOLO-format RGB images and labels
+directly from Gazebo simulation truth.
+
+Default generated location after cloning this repo to `~/Desktop/yoloshuttle`:
+
+```text
+dataset/gazebo_scrobot/
+├── data.yaml
+├── metadata.csv
+├── images/{train,val,test}/
+└── labels/{train,val,test}/
+```
+
+The generator uses the same rendered shuttle STL, the simulated shuttle poses,
+the robot/camera transform, and the live RGB `CameraInfo` to project YOLO
+bounding boxes automatically.
+
+The generated directory is ignored by Git.
+
+## Ubuntu / CUDA smoke test
+
+On the ThinkPad with the NVIDIA RTX 2000 Ada laptop GPU:
+
+```bash
+cd ~/Desktop/yoloshuttle
+bash ubuntu_cuda_smoke.sh dataset/gazebo_scrobot/data.yaml
+```
+
+The script:
+
+1. verifies `nvidia-smi`;
+2. creates `.venv` if needed;
+3. installs `requirements.txt`;
+4. verifies that PyTorch can actually use CUDA;
+5. prints the GPU and available VRAM;
+6. if the generated dataset exists, performs a 1-epoch fine-tune from the
+   repository `best.pt` using `device=0`, `imgsz=640`, and `batch=4`.
+
+If the dataset does not exist yet, the driver/PyTorch CUDA check still runs and
+the script exits after confirming CUDA readiness.
+
+A successful training smoke writes:
+
+```text
+runs/detect/ubuntu_cuda_smoke/weights/best.pt
+```
+
+Do not replace the repository baseline `best.pt` from the smoke run. It is
+only a compatibility test.
+
+After CUDA and the dataset are verified, the first serious synthetic-only
+fine-tune should remain conservative because the final deployment domain is the
+real D435i camera, not Gazebo. A reasonable first experiment is:
+
+```bash
+python train_finetune.py \
+  --model best.pt \
+  --data dataset/gazebo_scrobot/data.yaml \
+  --device 0 \
+  --epochs 15 \
+  --batch 8 \
+  --imgsz 640 \
+  --lr0 0.0001 \
+  --name gazebo_scrobot_v1
+```
+
+Keep the original `best.pt` for comparison.
