@@ -12,3 +12,6 @@ datasets/
 # Keep dataset/data.yaml tracked as the template/config.
 dataset/images/
 dataset/labels/
+
+# Auto-generated Gazebo dataset
+dataset/gazebo_scrobot/
