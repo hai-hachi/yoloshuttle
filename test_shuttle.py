@@ -9,10 +9,17 @@ import time
 import cv2
 from ultralytics import YOLO
 
+from validate_model import resolve_model
+
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Live shuttlecock detector test.")
-    p.add_argument("model", help="Path to YOLO weights, e.g. best.pt")
+    p.add_argument(
+        "model",
+        nargs="?",
+        default="latest",
+        help="Model path, run name, or 'latest' (default: latest)",
+    )
     p.add_argument("--camera", type=int, default=0)
     p.add_argument("--conf", type=float, default=0.10)
     p.add_argument("--imgsz", type=int, default=640)
@@ -24,7 +31,9 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
-    model = YOLO(args.model)
+    model_path = resolve_model(args.model)
+    print(f"Using model: {model_path}")
+    model = YOLO(str(model_path))
 
     cap = cv2.VideoCapture(args.camera)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, args.width)
