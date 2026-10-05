@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
 import argparse
+import hashlib
 import random
+import shutil
 from pathlib import Path
 
 import cv2
@@ -19,7 +21,12 @@ def parse_args():
         default="dataset/gazebo_scrobot",
         help="Dataset root containing images/{train,val,test} and labels/{train,val,test}.",
     )
-    p.add_argument("--samples", type=int, default=12, help="Number of preview images.")
+    p.add_argument(
+        "--samples",
+        type=int,
+        default=12,
+        help="Total preview images. Samples are distributed across train/val/test.",
+    )
     p.add_argument("--seed", type=int, default=42)
     return p.parse_args()
 
@@ -112,6 +119,15 @@ def draw_preview(image_path, label_path, out_path):
     return True, errors
 
 
+
+def file_sha1(path):
+    h = hashlib.sha1()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
 def main():
     args = parse_args()
     root = Path(args.dataset).expanduser().resolve()
@@ -128,7 +144,9 @@ def main():
     total_boxes = 0
     total_negatives = 0
     all_pairs = []
+    pairs_by_split = {"train": [], "val": [], "test": []}
     errors = []
+    image_hashes = {}
 
     split_counts = {}
 
@@ -155,7 +173,12 @@ def main():
             boxes_in_split += len(boxes)
             if len(boxes) == 0:
                 negatives += 1
-            all_pairs.append((split, image_path, label_path))
+            pair = (split, image_path, label_path)
+            all_pairs.append(pair)
+            pairs_by_split[split].append(pair)
+
+            digest = file_sha1(image_path)
+            image_hashes.setdefault(digest, []).append(image_path)
 
         split_counts[split] = len(images)
         total_images += len(images)
@@ -197,16 +220,65 @@ def main():
     if split_counts.get("val", 0) == 0:
         errors.append("val split is empty")
 
+    duplicate_groups = [
+        paths for paths in image_hashes.values()
+        if len(paths) > 1
+    ]
+    if duplicate_groups:
+        print()
+        print(f"Duplicate image hashes: {len(duplicate_groups)} group(s)")
+        for paths in duplicate_groups[:10]:
+            print("  " + " == ".join(str(p.relative_to(root)) for p in paths))
+        errors.append(
+            f"{len(duplicate_groups)} exact duplicate image group(s) found"
+        )
+
     print()
     preview_root = root / "preview"
+    if preview_root.exists():
+        shutil.rmtree(preview_root)
     preview_root.mkdir(parents=True, exist_ok=True)
 
-    sample_count = min(max(0, args.samples), len(all_pairs))
-    sampled = rng.sample(all_pairs, sample_count) if sample_count else []
+    requested = max(0, args.samples)
+    sampled = []
+
+    # Stratify previews across all non-empty splits so validation cannot
+    # accidentally show only train images.
+    nonempty_splits = [
+        split for split in ("train", "val", "test")
+        if pairs_by_split[split]
+    ]
+    if requested and nonempty_splits:
+        base = requested // len(nonempty_splits)
+        remainder = requested % len(nonempty_splits)
+
+        for idx, split in enumerate(nonempty_splits):
+            want = base + (1 if idx < remainder else 0)
+            want = min(want, len(pairs_by_split[split]))
+            if want:
+                sampled.extend(rng.sample(pairs_by_split[split], want))
+
+        # If a small split could not satisfy its quota, fill remaining slots
+        # from the unused global pool.
+        if len(sampled) < requested:
+            used = {pair[1] for pair in sampled}
+            remaining = [
+                pair for pair in all_pairs
+                if pair[1] not in used
+            ]
+            extra = min(requested - len(sampled), len(remaining))
+            if extra:
+                sampled.extend(rng.sample(remaining, extra))
+
+    sample_count = len(sampled)
 
     preview_errors = []
     for index, (split, image_path, label_path) in enumerate(sampled, 1):
         out_path = preview_root / f"{index:02d}_{split}_{image_path.name}"
+        print(
+            f"preview {index:02d}: {split}  "
+            f"{image_path.name}  <-  {label_path.name}"
+        )
         ok, detail = draw_preview(image_path, label_path, out_path)
         if not ok:
             preview_errors.append(str(detail))
@@ -227,9 +299,10 @@ def main():
             print(f"  ... plus {len(errors)-30} more")
         raise SystemExit(1)
 
-    print("CHECK RESULT: PASS")
-    print("Labels are structurally valid and train/val are non-empty.")
-    print("Open the preview directory and visually confirm the green boxes cover shuttles.")
+    print("CHECK RESULT: STRUCTURAL PASS")
+    print("Labels are structurally valid, image/label pairs match by stem, and train/val are non-empty.")
+    print("This script cannot prove geometric synchronization from text files alone.")
+    print("Open the freshly regenerated preview directory and visually confirm every green box covers the shuttle in that same image.")
 
 
 if __name__ == "__main__":
