@@ -1,17 +1,39 @@
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+*.pyo
 .venv/
 venv/
-runs/
-.DS_Store
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
-# Downloaded training datasets
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/
+
+# Logs / experiment trackers
+*.log
+wandb/
+
+# ---------------------------------------------------------------------------
+# Local datasets
+# ---------------------------------------------------------------------------
+# Gazebo-generated datasets, Roboflow downloads, real-camera datasets, etc.
+# Dataset contents are intentionally never versioned in this repository.
+dataset/
 datasets/
 
-# Local SCROBOT dataset contents
-# Keep dataset/data.yaml tracked as the template/config.
-dataset/images/
-dataset/labels/
+# ---------------------------------------------------------------------------
+# Training / validation outputs
+# ---------------------------------------------------------------------------
+runs/
+artifacts/
 
-# Auto-generated Gazebo dataset
-dataset/gazebo_scrobot_simple/
+# Exported deployment formats generated locally
+*.onnx
+*.engine
+*.torchscript
+*.tflite
+*.openvino/
