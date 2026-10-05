@@ -9,21 +9,88 @@ from pathlib import Path
 from ultralytics import YOLO
 
 
+def resolve_model(value: str) -> Path:
+    """Resolve an explicit model path, a run name, or the special value 'latest'."""
+    if value == "latest":
+        pointer = Path("artifacts/latest_model.txt")
+        if pointer.is_file():
+            candidate = Path(pointer.read_text().strip()).expanduser()
+            if candidate.is_file():
+                return candidate
+
+        models_dir = Path("artifacts/models")
+        candidates = sorted(
+            models_dir.glob("*.pt"),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        ) if models_dir.is_dir() else []
+        if candidates:
+            return candidates[0]
+
+        run_candidates = sorted(
+            Path("runs/detect").glob("*/weights/best.pt"),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        ) if Path("runs/detect").is_dir() else []
+        if run_candidates:
+            return run_candidates[0]
+
+        raise FileNotFoundError(
+            "No trained model found. Expected artifacts/models/*.pt or "
+            "runs/detect/*/weights/best.pt"
+        )
+
+    direct = Path(value).expanduser()
+    if direct.is_file():
+        return direct
+
+    run_candidate = Path("runs/detect") / value / "weights" / "best.pt"
+    if run_candidate.is_file():
+        return run_candidate
+
+    artifact_candidate = Path("artifacts/models") / f"{value}.pt"
+    if artifact_candidate.is_file():
+        return artifact_candidate
+
+    available = []
+    if Path("artifacts/models").is_dir():
+        available.extend(str(p) for p in sorted(Path("artifacts/models").glob("*.pt")))
+    if Path("runs/detect").is_dir():
+        available.extend(
+            str(p) for p in sorted(Path("runs/detect").glob("*/weights/best.pt"))
+        )
+
+    message = [f"Model not found: {value}"]
+    if available:
+        message.append("Available trained models:")
+        message.extend(f"  - {p}" for p in available)
+    else:
+        message.append("No trained outputs were found under artifacts/models or runs/detect.")
+    raise FileNotFoundError("\n".join(message))
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description="Validate a shuttlecock detector.")
-    p.add_argument("model", help="Path to model weights, e.g. best.pt")
-    p.add_argument("--data", default="datasets/badyfriends_v5/data.yaml")
+    p.add_argument(
+        "model",
+        nargs="?",
+        default="latest",
+        help="Model path, run name, or 'latest' (default: latest)",
+    )
+    p.add_argument(
+        "--data",
+        default="dataset/gazebo_scrobot_simple/data.yaml",
+        help="YOLO dataset YAML",
+    )
     p.add_argument("--device", default="0")
     p.add_argument("--imgsz", type=int, default=640)
     p.add_argument("--batch", type=int, default=16)
     p.add_argument("--split", choices=["val", "test"], default="val")
     args = p.parse_args()
 
-    model_path = Path(args.model)
+    model_path = resolve_model(args.model)
     data_path = Path(args.data)
 
-    if not model_path.is_file():
-        raise FileNotFoundError(f"Model not found: {model_path}")
     if not data_path.is_file():
         raise FileNotFoundError(f"Dataset YAML not found: {data_path}")
 
