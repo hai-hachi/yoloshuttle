@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import shutil
 from pathlib import Path
 
 from ultralytics import YOLO
@@ -14,7 +15,11 @@ from plot_metrics import plot_metrics
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Fine-tune shuttlecock YOLO weights.")
     p.add_argument("--model", default="best.pt", help="Starting weights (default: best.pt)")
-    p.add_argument("--data", default="dataset/data.yaml", help="YOLO dataset YAML")
+    p.add_argument(
+        "--data",
+        default="dataset/gazebo_scrobot_simple/data.yaml",
+        help="YOLO dataset YAML",
+    )
     p.add_argument("--epochs", type=int, default=50)
     p.add_argument("--imgsz", type=int, default=640)
     p.add_argument("--batch", type=int, default=8)
@@ -23,6 +28,16 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--patience", type=int, default=15)
     p.add_argument("--workers", type=int, default=4)
     p.add_argument("--name", default="scrobot_finetune")
+    p.add_argument(
+        "--project",
+        default="runs/detect",
+        help="Ultralytics run directory root (default: runs/detect)",
+    )
+    p.add_argument(
+        "--artifacts-dir",
+        default="artifacts/models",
+        help="Stable location where best.pt is copied after training",
+    )
     p.add_argument("--smoke-test", action="store_true", help="Train only 3 epochs")
     return p.parse_args()
 
@@ -79,7 +94,7 @@ def main() -> None:
         lr0=args.lr0,
         patience=args.patience,
         workers=args.workers,
-        project="runs/detect",
+        project=args.project,
         name=args.name,
         exist_ok=True,
         seed=42,
@@ -98,7 +113,19 @@ def main() -> None:
     metrics_png = save_dir / "metrics.png"
 
     print("\nTraining complete.")
-    print(f"Best weights: {best_path}")
+    print(f"Ultralytics best weights: {best_path}")
+
+    artifacts_dir = Path(args.artifacts_dir)
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
+    stable_best = artifacts_dir / f"{args.name}.pt"
+    shutil.copy2(best_path, stable_best)
+
+    latest_file = artifacts_dir.parent / "latest_model.txt"
+    latest_file.parent.mkdir(parents=True, exist_ok=True)
+    latest_file.write_text(str(stable_best.resolve()) + "\n")
+
+    print(f"Stable model copy      : {stable_best}")
+    print(f"Latest-model pointer   : {latest_file}")
 
     if results_csv.is_file():
         plot_metrics(results_csv, metrics_png)
@@ -130,7 +157,12 @@ def main() -> None:
     print("                     confusion_matrix.png (in the validation output directory)")
 
     print("\nTest live with:")
-    print(f"  python test_shuttle.py {best_path}")
+    print(f"  python test_shuttle.py {stable_best}")
+    print("\nValidate the test split with:")
+    print(
+        "  python validate_model.py latest "
+        f"--data {data_path} --split test --device {args.device or '0'}"
+    )
 
 
 if __name__ == "__main__":
