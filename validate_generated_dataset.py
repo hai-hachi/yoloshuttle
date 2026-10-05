@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import csv
 import hashlib
 import random
 import shutil
@@ -128,6 +129,19 @@ def file_sha1(path):
     return h.hexdigest()
 
 
+def load_metadata(root):
+    path = root / "metadata.csv"
+    if not path.exists():
+        return {}
+    rows = {}
+    with path.open(newline="") as f:
+        for row in csv.DictReader(f):
+            frame = row.get("frame", "")
+            if frame:
+                rows[frame] = row
+    return rows
+
+
 def main():
     args = parse_args()
     root = Path(args.dataset).expanduser().resolve()
@@ -135,6 +149,8 @@ def main():
 
     if not root.exists():
         raise SystemExit(f"Dataset not found: {root}")
+
+    metadata = load_metadata(root)
 
     print(f"Dataset: {root}")
     print()
@@ -227,11 +243,40 @@ def main():
     if duplicate_groups:
         print()
         print(f"Duplicate image hashes: {len(duplicate_groups)} group(s)")
+        stale_pose_groups = 0
         for paths in duplicate_groups[:10]:
             print("  " + " == ".join(str(p.relative_to(root)) for p in paths))
-        errors.append(
-            f"{len(duplicate_groups)} exact duplicate image group(s) found"
-        )
+
+            poses = []
+            for p in paths:
+                row = metadata.get(p.stem)
+                if row:
+                    pose = (
+                        row.get("camera_x", "?"),
+                        row.get("camera_y", "?"),
+                        row.get("camera_yaw_rad", "?"),
+                    )
+                    poses.append((p.stem, pose))
+
+            if poses:
+                unique_poses = {pose for _, pose in poses}
+                if len(unique_poses) > 1:
+                    stale_pose_groups += 1
+                    print("    SAME PIXELS, DIFFERENT COMMANDED POSES:")
+                    for stem, pose in poses:
+                        print(
+                            f"      {stem}: x={pose[0]} y={pose[1]} yaw={pose[2]}"
+                        )
+
+        if stale_pose_groups:
+            errors.append(
+                f"{stale_pose_groups} duplicate-image group(s) have different "
+                "camera poses; this indicates stale/reused rendered RGB frames"
+            )
+        else:
+            errors.append(
+                f"{len(duplicate_groups)} exact duplicate image group(s) found"
+            )
 
     print()
     preview_root = root / "preview"
