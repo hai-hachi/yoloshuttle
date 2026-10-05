@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DATA_PATH="${1:-dataset/gazebo_scrobot/data.yaml}"
+DATA_PATH="${1:-dataset/gazebo_scrobot_simple/data.yaml}"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 
 echo "============================================================"
@@ -61,7 +61,7 @@ if [ ! -f "${DATA_PATH}" ]; then
   echo
   echo "CUDA/PyTorch check PASSED."
   echo "Dataset not found at: ${DATA_PATH}"
-  echo "Generate it first with scrobot_debug/yolo_dataset_capture.launch.py,"
+  echo "Generate it first with scrobot_debug/yolo_simple_dataset.launch.py,"
   echo "then rerun this script to include the one-epoch training smoke."
   exit 0
 fi
@@ -110,5 +110,6 @@ python train_finetune.py \
 echo
 echo "============================================================"
 echo "CUDA TRAINING SMOKE PASSED"
-echo "weights: runs/detect/ubuntu_cuda_smoke/weights/best.pt"
+echo "run weights : runs/detect/ubuntu_cuda_smoke/weights/best.pt"
+echo "stable copy : artifacts/models/ubuntu_cuda_smoke.pt"
 echo "============================================================"
