@@ -14,4 +14,4 @@ dataset/images/
 dataset/labels/
 
 # Auto-generated Gazebo dataset
-dataset/gazebo_scrobot/
+dataset/gazebo_scrobot_simple/
