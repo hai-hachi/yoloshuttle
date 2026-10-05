@@ -19,7 +19,7 @@ def parse_args():
     )
     p.add_argument(
         "--dataset",
-        default="dataset/gazebo_scrobot",
+        default="dataset/gazebo_scrobot_simple",
         help="Dataset root containing images/{train,val,test} and labels/{train,val,test}.",
     )
     p.add_argument(
