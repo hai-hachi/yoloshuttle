@@ -86,7 +86,7 @@ def main() -> None:
         default="dataset/gazebo_scrobot_simple/data.yaml",
     )
     p.add_argument("--device", default="0")
-    p.add_argument("--imgsz", type=int, default=640)
+    p.add_argument("--imgsz", type=int, default=960)
     p.add_argument("--batch", type=int, default=16)
     p.add_argument("--split", choices=["val", "test"], default="val")
     args = p.parse_args()
