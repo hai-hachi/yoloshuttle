@@ -17,7 +17,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("model", nargs="?", default="latest")
     p.add_argument("--camera", type=int, default=0)
     p.add_argument("--conf", type=float, default=0.10)
-    p.add_argument("--imgsz", type=int, default=960)
+    p.add_argument("--imgsz", type=int, default=640)
     p.add_argument("--width", type=int, default=1280)
     p.add_argument("--height", type=int, default=720)
     return p.parse_args()

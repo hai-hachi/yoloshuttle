@@ -307,31 +307,3 @@ compare:
 ```
 
 Do not replace the deployed baseline based only on Gazebo mAP.
-
----
-
-## Simulation-freeze reproducibility
-
-Production SCROBOT inference uses `imgsz=960`. The validation and live-test
-helpers therefore default to 960 as well.
-
-Before declaring a Gazebo full-mission result frozen, generate a manifest for
-the exact model and dataset used:
-
-```bash
-python scripts/freeze_model_manifest.py \
-  artifacts/models/gazebo_simple_v2.pt \
-  --dataset dataset/gazebo_scrobot_simple \
-  --imgsz 960 \
-  --conf 0.10
-```
-
-This writes `artifacts/simulation_freeze_manifest.json` containing the model
-SHA256, a deterministic dataset-tree SHA256, Python/Ultralytics/PyTorch/CUDA
-versions, GPU name, Git commit/branch state, and the production inference
-settings. Keep that manifest with the final simulation validation record.
-
-The model binary itself is intentionally not committed to normal Git history.
-For a true release freeze, publish the validated `.pt` file as an immutable
-release artifact or model-registry object and record its SHA256 from this
-manifest.
